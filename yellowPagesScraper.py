@@ -12,6 +12,7 @@ class YellowPagesScraper():
     def __init__(self):
         self.pagePosition = 0 # Where are we in our page list
         self.shortSleepMaxSeconds = 5
+        self.mediumSleepMaxSeconds = 30
         self.url = "http://www.yellowpages.com/"
         
         now = datetime.datetime.now() # Get the current datetime
@@ -22,8 +23,15 @@ class YellowPagesScraper():
     
     
     def shortRandomSleep(self):
-        time.sleep(random.random() * self.shortSleepMaxSeconds)
+        sleepTime = random.random() * self.shortSleepMaxSeconds
+        print("sleeping for " + sleepTime)
+        time.sleep(sleepTime)
     
+    
+    def mediumRandomSleep(self):
+        sleepTime = random.random() * self.mediumSleepMaxSeconds
+        print("sleeping for " + sleepTime)
+        time.sleep(sleepTime)
     
     
     def spider(self, keyWord, zipcode, numberOfPagesToGrab=1):
@@ -33,9 +41,22 @@ class YellowPagesScraper():
 
         currentPage = 1         
         url = self.url + zipcode + '/' + keyWordDashes + '?q=' + keyWordPlus
+        print url
         command = 'wget --output-document ' + str(currentPage) + '.html ' + url
+        print command
         os.system(command)
+        currentPage = 2
+        
+        for i in range(numberOfPagesToGrab):
+            self.mediumRandomSleep()
+            #http://www.yellowpages.com/87106/sports-gym?o=0&page=2&q=Sports+Gym
+            url = self.url + zipcode + '/' + keyWordDashes + '?o=0&page=' + str(currentPage) + '?q=' + keyWordPlus
+            print keyWordDashes
+            print url
+            command = 'wget --output-document ' + str(currentPage) + '.html ' + url
+            print command
+            os.system(command)
         
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
-    scraper.spider("Gym", "87106")
+    scraper.spider("Gym", "87106", 2)
