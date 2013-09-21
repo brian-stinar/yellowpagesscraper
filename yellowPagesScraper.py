@@ -67,28 +67,45 @@ class YellowPagesScraper():
         fileList = os.listdir(".")
         print ("Parsing files in the list : " + str(fileList)) + "\n"
         for fileName in fileList:
-            print "Presently parsing - " + fileName + "\n\n"
+            print "\nPresently parsing - " + fileName + "\n"
             soup = BeautifulSoup(open(fileName))
          
-            businesses = soup.findAll("div", {"class": "info"})
+            businesses = soup.findAll("div", {"class" : "info"})
             for business in businesses:
-                name = business.find("div", {"class": "srp-business-name"}).getText().strip()
-                phone = business.find("span", {"class": "business-phone"}).getText().strip()
+                name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
+                phone = business.find("span", {"class" : "business-phone"}).getText().strip()
                 
-                address = business.find("span", {"class": "street-address"}) # May be empty
-                if (address != None):
-                    address = address.getText().strip()
+                
+                # TODO -- All this != None stuff is the same - make this into a 'private' method
+                streetAddress = business.find("span", {"class" : "street-address"}) # May be empty
+                if (streetAddress != None):
+                    streetAddress = streetAddress.getText().strip()[:-1] # Throw away the trailing comma
+                else:
+                    streetAddress = ""
+                
+                cityState = business.find("span", {"class" : "city-state"}) # May be empty
+                if cityState != None:
+                    cityState = cityState.getText().strip()
+                    city = cityState.split('\n')[0][:-1] # Trailing comma
+                    state = cityState.split('\n')[1]
+                else:
+                    city = ""
+                    state = "" 
+                
+                zipCode = business.find("span", {"class" : "postal-code"})
+                if zipCode != None:
+                    zipCode = zipCode.getText().strip()
+                else:
+                    zipCode = ""
                 
                 website = business.find("li", {"class" : "website-feature"}) # Also may be empty
                 if website != None:
                     website =  website.find('a')['href'] # This seems like I could do this better, without the find
+                else:
+                    website = ""
+                print name + ',' + phone + ',' + streetAddress + ',' + city + ',' + state + ','+ website
 
-                print website
-                print 
-                print " * * * * "
-                print 
-
-            break
+            
             
         #for value in businessesList:
         #    print value
@@ -96,5 +113,5 @@ class YellowPagesScraper():
         
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
-    # scraper.spider("Gym", "87106", 5)
+    #scraper.spider("Gym", "87106", 5)
     scraper.parsePages()
