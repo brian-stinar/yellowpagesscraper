@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: latin-1 -*-
+# -*- coding: UTF-8 -*-
 
 from bs4 import BeautifulSoup
 import time
@@ -66,7 +66,36 @@ class YellowPagesScraper():
         # Get a page listing of all the pages in the current directory
         fileList = os.listdir(".")
         for fileName in fileList:
-            continue
+            print fileName + "\n\n"
+            soup = BeautifulSoup(open(fileName))
+            #print soup.prettify()
+            
+            businessesList = []
+            businesses = soup.findAll("div", {"class": "srp-business-name"})
+            
+            for business in  businesses:
+                businessName = business.getText().strip()
+                businessesList.append(businessName)
+
+            count = 0
+            phones = soup.findAll("span", {"class": "business-phone"})
+            for phone in phones:
+                phoneNumber = phone.getText().strip()
+                businessesList[count] = businessesList[count] + ',' + phoneNumber
+                count = count + 1
+            
+            count = 0
+            addresses = soup.findAll("span", {"class": "street-address"})
+            for address in addresses:
+                addressResult = address.getText().strip()
+                businessesList[count] = businessesList[count] + ',' + addressResult
+                count = count + 1
+            
+            break    
+
+        for value in businessesList:
+            print value
+        
         
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
