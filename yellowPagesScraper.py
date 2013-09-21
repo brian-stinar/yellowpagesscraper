@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 
-# import dryscrape - scraping library not working so well - it looks like YellowPages is doing some tricky stuff for Webkit based browsers
-#import urllib2 #-- same nastiness as above.
+from bs4 import BeautifulSoup
 import time
 import random
 import os
@@ -31,10 +30,12 @@ class YellowPagesScraper():
         # set up a web scraping session
         keyWordDashes = keyWord.replace(' ', '-')
         keyWordPlus = keyWord.replace(' ', '+')
-        
+
+        currentPage = 1         
         url = self.url + zipcode + '/' + keyWordDashes + '?q=' + keyWordPlus
-        os.system('wget ' + url)
- 
+        command = 'wget --output-document ' + str(currentPage) + '.html ' + url
+        os.system(command)
+        
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
     scraper.spider("Gym", "87106")
