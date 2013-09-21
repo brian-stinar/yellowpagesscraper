@@ -6,6 +6,8 @@ import time
 import random
 import os
 import datetime
+import MySQLdb
+import sys
 
 class YellowPagesScraper():
     
@@ -14,6 +16,7 @@ class YellowPagesScraper():
         self.shortSleepMaxSeconds = 5
         self.mediumSleepMaxSeconds = 30
         self.url = "http://www.yellowpages.com/"
+        self.businessList = []
         
         now = datetime.datetime.now() # Get the current datetime
         self.nowString =  str(now.year)  + '.' + str(now.month) + '.' + str(now.day) + '.' + str(now.hour) 
@@ -66,6 +69,7 @@ class YellowPagesScraper():
         # Get a page listing of all the pages in the current directory
         fileList = os.listdir(".")
         print ("Parsing files in the list : " + str(fileList)) + "\n"
+        
         for fileName in fileList:
             print "\nPresently parsing - " + fileName + "\n"
             soup = BeautifulSoup(open(fileName))
@@ -103,15 +107,38 @@ class YellowPagesScraper():
                     website =  website.find('a')['href'] # This seems like I could do this better, without the find
                 else:
                     website = ""
-                print name + ',' + phone + ',' + streetAddress + ',' + city + ',' + state + ','+ website
+                
+                self.businessList.append((name, phone, streetAddress, city, state, website))
+        
 
-            
-            
-        #for value in businessesList:
-        #    print value
+    def insertBusinessesIntoDatabase(self): 
+        
+        try:
+            connection = MySQLdb.connect(host= "localhost",
+                  user="yellowpages",
+                  passwd="FbhPWnZiltkNbQ==",
+                  db="yellowpages")
+
+            cursor = connection.cursor()
+
+            for business in self.businessList:
+                now = datetime.datetime.now()
+                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped) VALUES (%s, %s, %s, %s, %s, %s, %s)""", (business[0], business[1], business[2], business[3], business[4], business[5], now))
+                #print command               
+                #cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website) VALUES (%s, %s, %s, %s, %s, %s)""", 
+                #               (business[0], business[1], business[2], business[3], business[4], business[5], now))
+                connection.commit()
+            connection.close()    
+        
+        except MySQLdb.Error, e:
+            print "Error %d: %s" % (e.args[0], e.args[1])
+            sys.exit(1)
+
+
         
         
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
     #scraper.spider("Gym", "87106", 5)
     scraper.parsePages()
+    scraper.insertBusinessesIntoDatabase()
