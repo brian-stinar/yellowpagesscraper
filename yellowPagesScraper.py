@@ -2,7 +2,7 @@
 # -*- coding: latin-1 -*-
 
 # import dryscrape - scraping library not working so well - it looks like YellowPages is doing some tricky stuff for Webkit based browsers
-# import urllib2 -- same nastiness as above.
+import urllib2 #-- same nastiness as above.
 import time
 import random
 import os
