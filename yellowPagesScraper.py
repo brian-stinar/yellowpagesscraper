@@ -65,36 +65,33 @@ class YellowPagesScraper():
     def parsePages(self):
         # Get a page listing of all the pages in the current directory
         fileList = os.listdir(".")
+        print ("Parsing files in the list : " + str(fileList)) + "\n"
         for fileName in fileList:
-            print fileName + "\n\n"
+            print "Presently parsing - " + fileName + "\n\n"
             soup = BeautifulSoup(open(fileName))
-            #print soup.prettify()
-            
-            businessesList = []
-            businesses = soup.findAll("div", {"class": "srp-business-name"})
-            
-            for business in  businesses:
-                businessName = business.getText().strip()
-                businessesList.append(businessName)
+         
+            businesses = soup.findAll("div", {"class": "info"})
+            for business in businesses:
+                name = business.find("div", {"class": "srp-business-name"}).getText().strip()
+                phone = business.find("span", {"class": "business-phone"}).getText().strip()
+                
+                address = business.find("span", {"class": "street-address"}) # May be empty
+                if (address != None):
+                    address = address.getText().strip()
+                
+                website = business.find("li", {"class" : "website-feature"}) # Also may be empty
+                if website != None:
+                    website =  website.find('a')['href'] # This seems like I could do this better, without the find
 
-            count = 0
-            phones = soup.findAll("span", {"class": "business-phone"})
-            for phone in phones:
-                phoneNumber = phone.getText().strip()
-                businessesList[count] = businessesList[count] + ',' + phoneNumber
-                count = count + 1
-            
-            count = 0
-            addresses = soup.findAll("span", {"class": "street-address"})
-            for address in addresses:
-                addressResult = address.getText().strip()
-                businessesList[count] = businessesList[count] + ',' + addressResult
-                count = count + 1
-            
-            break    
+                print website
+                print 
+                print " * * * * "
+                print 
 
-        for value in businessesList:
-            print value
+            break
+            
+        #for value in businessesList:
+        #    print value
         
         
 if __name__ == "__main__":
