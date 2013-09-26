@@ -226,11 +226,8 @@ class YellowPagesScraper():
             print "Error %d: %s" % (e.args[0], e.args[1])
             sys.exit(1)
 
-        
-        
-if __name__ == "__main__":
-    
-    
+
+def buildCommandLine():
     parser = argparse.ArgumentParser(description='Connect to yellowpages.com, and scrape away!')
 
     parser.add_argument("--maxSleep", type=int,
@@ -239,8 +236,12 @@ if __name__ == "__main__":
                     help="minimum sleep time between page requests", default=5)
     parser.add_argument("keyword", help="Keyword to search for")
     parser.add_argument("zipcode", help="Zip code to search in ")
+    return parser
 
-    args = parser.parse_args()
+        
+if __name__ == "__main__":
+
+    args = buildCommandLine().parse_args()
     
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
     
