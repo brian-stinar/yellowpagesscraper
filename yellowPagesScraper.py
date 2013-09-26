@@ -155,6 +155,12 @@ class YellowPagesScraper():
                 for business in businesses:
 
                     name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
+                    
+                    webAddress = business.find("div", {"class" : "srp-business-name"})
+                    if webAddress.a.has_attr('href'):
+                        yellowPagesLink = str(webAddress.a['href']) + " yes "
+                        # Now, grab the information from this page, and try to find an email address.
+                    
                     phone = business.find("span", {"class" : "business-phone"}).getText().strip()
                     
                     
