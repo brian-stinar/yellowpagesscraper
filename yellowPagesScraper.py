@@ -9,14 +9,20 @@ import datetime
 import MySQLdb
 import sys
 
+
 class YellowPagesScraper():
     
     def __init__(self):
         self.pagePosition = 0 # Where are we in our page list
         self.shortSleepMaxSeconds = 5
+        
+        self.mediumSleepMinSeconds = 5
         self.mediumSleepMaxSeconds = 30
+        
         self.url = "http://www.yellowpages.com/"
+        self.baseUrl = ""
         self.businessList = []
+        
         
         now = datetime.datetime.now() # Get the current datetime
         self.nowString =  str(now.year)  + '.' + str(now.month) + '.' + str(now.day) + '.' + str(now.hour) 
@@ -32,22 +38,32 @@ class YellowPagesScraper():
     
     
     def mediumRandomSleep(self):
-        sleepTime = random.random() * self.mediumSleepMaxSeconds
+        sleepTime = self.mediumSleepMinSeconds + random.random() * (self.mediumSleepMaxSeconds - self.mediumSleepMinSeconds)
         print("sleeping for " + str(sleepTime) + ' seconds')
         time.sleep(sleepTime)
     
-    
-    def spider(self, keyWord, zipcode, numberOfPagesToGrab=1):
-        # set up a web scraping session
+    def calculateBaseUrl(self, keyWord, zipcode):
         keyWordDashes = keyWord.replace(' ', '-')
         keyWordPlus = keyWord.replace(' ', '+')
-
-        currentPage = 1         
         url = self.url + zipcode + '/' + keyWordDashes + '?q=' + keyWordPlus
-        print url
+        return url
+
+    def calcualteSubsequentUrl(self, keyWord, zipcode, currentPageGrabbing):
+        keyWordDashes = keyWord.replace(' ', '-')
+        keyWordPlus = keyWord.replace(' ', '+')
+        url = self.url + zipcode + '/' + keyWordDashes + '?o=0&page=' + str(currentPageGrabbing) + '?q=' + keyWordPlus
+        return url
+
+    # set up a web scraping session
+    def spider(self, keyWord, zipcode, numberOfPagesToGrab=1):        
+        currentPage = 1 
+        url = self.calculateBaseUrl(keyWord, zipcode)
         command = 'wget --output-document ' + str(currentPage) + '.html ' + url
         print command
         os.system(command)
+        if (numberOfPagesToGrab == 1):
+            return
+        
         currentPage = 2
         
         for i in range(numberOfPagesToGrab):
@@ -57,13 +73,18 @@ class YellowPagesScraper():
             self.mediumRandomSleep()
 
             #http://www.yellowpages.com/87106/sports-gym?o=0&page=2&q=Sports+Gym
-            url = self.url + zipcode + '/' + keyWordDashes + '?o=0&page=' + str(currentPage) + '?q=' + keyWordPlus
-            print keyWordDashes
+            url = self.calcualteSubsequentUrl(keyWord, zipcode, currentPage)
             print url
             command = 'wget --output-document ' + str(currentPage) + '.html ' + url
             print command
             os.system(command)
             currentPage = currentPage + 1
+    
+    def getMaxNumberOfResultsPages(self, pageFileName):
+        soup = BeautifulSoup(open(pageFileName))
+        totalResults = soup.find("div", {"class" : "result-totals"})
+        return totalResults.getText().split("of")[1].strip().split()[0]
+
     
     def parsePages(self):
         # Get a page listing of all the pages in the current directory
@@ -134,11 +155,11 @@ class YellowPagesScraper():
             print "Error %d: %s" % (e.args[0], e.args[1])
             sys.exit(1)
 
-
         
         
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
-    #scraper.spider("Gym", "87106", 5)
-    scraper.parsePages()
-    scraper.insertBusinessesIntoDatabase()
+    scraper.spider("Gym", "87106", 1)
+    print scraper.getMaxNumberOfResultsPages("1.html")
+    #scraper.parsePages()
+    #scraper.insertBusinessesIntoDatabase()
