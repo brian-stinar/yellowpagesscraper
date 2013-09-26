@@ -20,9 +20,10 @@ class YellowPagesScraper():
         self.mediumSleepMaxSeconds = 30
         
         self.url = "http://www.yellowpages.com/"
+        self.resultsPerPage = 30
+        
         self.baseUrl = ""
         self.businessList = []
-        
         
         now = datetime.datetime.now() # Get the current datetime
         self.nowString =  str(now.year)  + '.' + str(now.month) + '.' + str(now.day) + '.' + str(now.hour) 
@@ -80,11 +81,17 @@ class YellowPagesScraper():
             os.system(command)
             currentPage = currentPage + 1
     
-    def getMaxNumberOfResultsPages(self, pageFileName):
+    def getMaxNumberOfResults(self, pageFileName):
         soup = BeautifulSoup(open(pageFileName))
         totalResults = soup.find("div", {"class" : "result-totals"})
-        return totalResults.getText().split("of")[1].strip().split()[0]
+        results= totalResults.getText().split("of")[1].strip().split()[0]
+        return int(results)
 
+    def calculateTotalNumberOfResultsPages(self, maxNumerOfResults):
+        if (maxNumerOfResults % self.resultsPerPage == 0):
+            return maxNumerOfResults / self.resultsPerPage
+        else:
+            return (maxNumerOfResults / self.resultsPerPage + 1)
     
     def parsePages(self):
         # Get a page listing of all the pages in the current directory
@@ -160,6 +167,6 @@ class YellowPagesScraper():
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
     scraper.spider("Gym", "87106", 1)
-    print scraper.getMaxNumberOfResultsPages("1.html")
+    print scraper.calculateTotalNumberOfResultsPages(scraper.getMaxNumberOfResults("1.html"))
     #scraper.parsePages()
     #scraper.insertBusinessesIntoDatabase()
