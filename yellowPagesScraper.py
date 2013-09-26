@@ -8,6 +8,8 @@ import os
 import datetime
 import MySQLdb
 import sys
+import subprocess
+import re
 
 
 class YellowPagesScraper():
@@ -56,36 +58,68 @@ class YellowPagesScraper():
         return url
 
     # set up a web scraping session
-    def spider(self, keyWord, zipcode, numberOfPagesToGrab=1):        
-        currentPage = 1 
+    def spider(self, keyWord, zipcode, startPage, endPage):        
+
+        if (startPage > endPage):
+            sys.stderr.write("startPage > endPage --- no good")
+        
         url = self.calculateBaseUrl(keyWord, zipcode)
-        command = 'wget --output-document ' + str(currentPage) + '.html ' + url
+        command = 'wget –quiet --output-document ' + str(startPage) + '.html ' + url
         print command
-        os.system(command)
-        if (numberOfPagesToGrab == 1):
+        
+        # works - wget is outputting progress to stderror?!? When I am bored, fix this in their source control
+        process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+        process.wait()
+        if (endPage == 1):
             return
+                
+        i = startPage
         
-        currentPage = 2
-        
-        for i in range(numberOfPagesToGrab):
+        while i < range(endPage):
             # The first URL is different
             if i == 1:
                 continue
             self.mediumRandomSleep()
 
             #http://www.yellowpages.com/87106/sports-gym?o=0&page=2&q=Sports+Gym
-            url = self.calcualteSubsequentUrl(keyWord, zipcode, currentPage)
+            url = self.calcualteSubsequentUrl(keyWord, zipcode, i)
             print url
-            command = 'wget --output-document ' + str(currentPage) + '.html ' + url
+            command = 'wget –quiet --output-document ' + str(i) + '.html ' + url
             print command
-            os.system(command)
-            currentPage = currentPage + 1
+            # works - wget is outputting progress to stderror?!? When I am bored, fix this in their source control
+            process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            process.wait()
+            i = i + 1
     
     def getMaxNumberOfResults(self, pageFileName):
         soup = BeautifulSoup(open(pageFileName))
         totalResults = soup.find("div", {"class" : "result-totals"})
-        results= totalResults.getText().split("of")[1].strip().split()[0]
-        return int(results)
+        if totalResults != None:
+            results = totalResults.getText().split("of")[1].strip().split()[0]
+            return int(results)
+
+        # Yellow Pages Is Jacking with Us and doing tons of stuff in JavaScript
+        else:
+            # Use links to get the maximum page results. Links is a browser that can make their results look better
+            command = "links -dump 1.html"
+            outfile = open("clean.html", 'w')
+            process = subprocess.Popen(command.split(), shell=False, stdout=outfile)
+            process.wait()
+            outfile.flush()
+            outfile.close()
+            
+            # Showing 1-30 of 137 results            
+            with open("clean.html") as cleanFile:
+                for line in cleanFile:
+                    matchObject = re.match(r'.*Showing 1-30 of(.*)results.*', line)
+                    if matchObject:
+                        matchline =  matchObject.group()
+                        match = matchline.split("Showing 1-30 of ")[1].split()[0].strip()
+                        return int(match)
+            
+            sys.stderr.write("Could not determine the number of results... Exiting")
+            sys.exit(-1)    
+            
 
     def calculateTotalNumberOfResultsPages(self, maxNumerOfResults):
         if (maxNumerOfResults % self.resultsPerPage == 0):
@@ -166,7 +200,13 @@ class YellowPagesScraper():
         
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
-    scraper.spider("Gym", "87106", 1)
-    print scraper.calculateTotalNumberOfResultsPages(scraper.getMaxNumberOfResults("1.html"))
+    
+    # Grab the first page, calculate the maxPages, and then grab all the pages
+    
+    scraper.spider("gym", "87106", 1, 1)
+    maxResults = scraper.getMaxNumberOfResults("1.html")
+    maxPages = scraper.calculateTotalNumberOfResultsPages(maxResults)
+#   scraper.spider("gym", "87106", 2, maxPages) # I can check to see what's in the directory
+    
     #scraper.parsePages()
     #scraper.insertBusinessesIntoDatabase()
