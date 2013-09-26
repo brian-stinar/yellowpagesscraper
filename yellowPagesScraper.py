@@ -10,39 +10,30 @@ import MySQLdb
 import sys
 import subprocess
 import re
+import argparse
 
 
 class YellowPagesScraper():
     
-    def __init__(self):
-        self.pagePosition = 0 # Where are we in our page list
-        self.shortSleepMaxSeconds = 5
+    def __init__(self, minSleep=5, maxSleep=30):
         
-        self.mediumSleepMinSeconds = 5
-        self.mediumSleepMaxSeconds = 30
+        self.mediumSleepMinSeconds = minSleep
+        self.mediumSleepMaxSeconds = maxSleep
         
         self.url = "http://www.yellowpages.com/"
         self.resultsPerPage = 30
         
-        self.baseUrl = ""
         self.businessList = []
         
         now = datetime.datetime.now() # Get the current datetime
         self.nowString =  str(now.year)  + '.' + str(now.month) + '.' + str(now.day) + '.' + str(now.hour) 
         if not os.path.isdir(self.nowString):
             os.mkdir(self.nowString) # make a directory with the data, if it doesn't exist 
-        os.chdir(self.nowString) # change into this directory
-    
-    # TODO - shared code between these two methods. Abstract out the commonalities.
-    def shortRandomSleep(self):
-        sleepTime = random.random() * self.shortSleepMaxSeconds
-        print("sleeping for " + str(sleepTime) + ' seconds')
-        time.sleep(sleepTime)
-    
+        os.chdir(self.nowString) # change into this directory    
     
     def mediumRandomSleep(self):
         sleepTime = self.mediumSleepMinSeconds + random.random() * (self.mediumSleepMaxSeconds - self.mediumSleepMinSeconds)
-        print("sleeping for " + str(sleepTime) + ' seconds')
+        print("\t\tsleeping for " + str(sleepTime) + ' seconds')
         time.sleep(sleepTime)
     
     def calculateBaseUrl(self, keyWord, zipcode):
@@ -137,43 +128,77 @@ class YellowPagesScraper():
         
         for fileName in fileList:
             print "\nPresently parsing - " + fileName + "\n"
-            soup = BeautifulSoup(open(fileName))
+            inputFile = open(fileName)
+            soup = BeautifulSoup(inputFile)
+            inputFile.close()
+            
+            businesses = soup.findAll("div", {"class" : "info-business"})
+            
+            if len(businesses) == 0:
+                # Try throwing away the first line, Yellow Pages added a dummy HTML doc at the head to mess with me
+                print("Yellowpages.com adds a dummy HTML document at the head, and then hides/shows with JavaScript. Ditching the dummy to parse...")
+                inputFile = open(fileName)
+                lines = "".join(inputFile.readlines()[1:]) # TODO - do this better
+                
+                inputFile.close()
+                soup = BeautifulSoup(lines)
+                businesses = soup.findAll("div", {"class" : "business-container-inner"})    
          
-            businesses = soup.findAll("div", {"class" : "info"})
-            for business in businesses:
-                name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
-                phone = business.find("span", {"class" : "business-phone"}).getText().strip()
-                
-                
-                # TODO -- All this != None stuff is the same - make this into a 'private' method
-                streetAddress = business.find("span", {"class" : "street-address"}) # May be empty
-                if (streetAddress != None):
-                    streetAddress = streetAddress.getText().strip()[:-1] # Throw away the trailing comma
-                else:
-                    streetAddress = ""
-                
-                cityState = business.find("span", {"class" : "city-state"}) # May be empty
-                if cityState != None:
-                    cityState = cityState.getText().strip()
-                    city = cityState.split('\n')[0][:-1] # Trailing comma
-                    state = cityState.split('\n')[1]
-                else:
-                    city = ""
-                    state = "" 
-                
-                zipCode = business.find("span", {"class" : "postal-code"})
-                if zipCode != None:
-                    zipCode = zipCode.getText().strip()
-                else:
-                    zipCode = ""
-                
-                website = business.find("li", {"class" : "website-feature"}) # Also may be empty
-                if website != None:
-                    website =  website.find('a')['href'] # This seems like I could do this better, without the find
-                else:
-                    website = ""
-                
-                self.businessList.append((name, phone, streetAddress, city, state, website))
+         
+                print "Found " + str(len(businesses)) + " businesses to parse"
+         
+            
+            if len(businesses) > 0:             
+                for business in businesses:
+
+                    name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
+                    phone = business.find("span", {"class" : "business-phone"}).getText().strip()
+                    
+                    
+                    # TODO -- All this != None stuff is the same - make this into a 'private' method
+                    streetAddress = business.find("span", {"class" : "street-address"}) # May be empty
+                    if (streetAddress != None):
+                        streetAddress = streetAddress.getText().strip()[:-1] # Throw away the trailing comma
+                    else:
+                        streetAddress = ""
+                    
+                    cityState = business.find("span", {"class" : "city-state"}) # May be empty
+                    if cityState != None:
+                        cityState = cityState.getText().strip()
+                        city = cityState.split('\n')[0][:-1] # Trailing comma
+                        state = cityState.split('\n')[1]
+                    else:
+                        city = ""
+                        state = "" 
+                    
+                    zipCode = business.find("span", {"class" : "postal-code"})
+                    if zipCode != None:
+                        zipCode = zipCode.getText().strip()
+                    else:
+                        zipCode = ""
+                    
+                    website = business.find("li", {"class" : "website-feature"}) # Also may be empty
+                    if website != None:
+                        website =  website.find('a')['href'] # This seems like I could do this better, without the find
+                    else:
+                        website = ""
+                    
+                    self.businessList.append((name, phone, streetAddress, city, state, website))
+                    
+    # Delete this eventually       
+    def parsePageWithLinks(self, fileName):
+        
+        command = "links -dump " + fileName
+        print command 
+        outfile = fileName.split('.')[0]+'.clean.html'      
+        print outfile
+        outfile = open(outfile, 'w')
+        process = subprocess.Popen(command.split(), shell=False, stdout=outfile)
+        process.wait()
+        outfile.flush()
+        outfile.close()
+        
+        sys.exit(1)
         
 
     def insertBusinessesIntoDatabase(self): 
@@ -202,16 +227,31 @@ class YellowPagesScraper():
         
         
 if __name__ == "__main__":
-    scraper = YellowPagesScraper()
     
-    # Grab the first page, calculate the maxPages, and then grab all the pages  
+    
+    parser = argparse.ArgumentParser(description='Connect to yellowpages.com, and scrape away!')
+
+    parser.add_argument("--maxSleep", type=int,
+                    help="maximum sleep time between page requests", default=30)
+    parser.add_argument("--minSleep", type=int,
+                    help="minimum sleep time between page requests", default=5)
+    parser.add_argument("keyword", help="Keyword to search for")
+    parser.add_argument("zipcode", help="Zip code to search in ")
+
+    args = parser.parse_args()
+    
+    scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
+    
+    # Grab the first page, calculate the maxPages, and then grab all the pages
+    '''
     print("Grabbing first page of directory listings to calculate the total page count")
-    scraper.spider("gym", "87106", 1, 1)
+    scraper.spider(args.keyword, args.zipcode, 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
     maxPages = scraper.calculateTotalNumberOfResultsPages(maxResults)
     print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
-    print("The remaining will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
-    scraper.spider("gym", "87106", 2, maxPages) # I can check to see what's in the directory
+    print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
+    scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
+    '''
     
-    #scraper.parsePages()
-    #scraper.insertBusinessesIntoDatabase()
+    scraper.parsePages()
+    scraper.insertBusinessesIntoDatabase()
