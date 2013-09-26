@@ -124,15 +124,19 @@ class YellowPagesScraper():
     def parsePages(self):
         # Get a page listing of all the pages in the current directory
         fileList = os.listdir(".")
-        print ("Parsing files in the list : " + str(fileList)) + "\n"
+        print ("Parsing files in the list : " + ", ".join(fileList))
         
         for fileName in fileList:
-            print "\nPresently parsing - " + fileName + "\n"
+            print "Presently parsing - " + fileName
             inputFile = open(fileName)
             soup = BeautifulSoup(inputFile)
             inputFile.close()
             
-            businesses = soup.findAll("div", {"class" : "info-business"})
+            
+            # either 'info' or 'info-business'
+            businesses = soup.findAll("div", {"class" : "info"})
+            if len(businesses) == 0:
+                businesses = soup.findAll("div", {"class" : "info-business"})
             
             if len(businesses) == 0:
                 # Try throwing away the first line, Yellow Pages added a dummy HTML doc at the head to mess with me
@@ -143,12 +147,10 @@ class YellowPagesScraper():
                 inputFile.close()
                 soup = BeautifulSoup(lines)
                 businesses = soup.findAll("div", {"class" : "business-container-inner"})    
-         
-         
-                print "Found " + str(len(businesses)) + " businesses to parse"
-         
+                  
             
-            if len(businesses) > 0:             
+            if len(businesses) > 0:
+                print "\tFound " + str(len(businesses)) + " businesses to parse"             
                 for business in businesses:
 
                     name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
@@ -243,6 +245,7 @@ if __name__ == "__main__":
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
     
     # Grab the first page, calculate the maxPages, and then grab all the pages
+    
     print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider(args.keyword, args.zipcode, 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
