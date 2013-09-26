@@ -62,34 +62,37 @@ class YellowPagesScraper():
 
         if (startPage > endPage):
             sys.stderr.write("startPage > endPage --- no good")
-        
-        url = self.calculateBaseUrl(keyWord, zipcode)
-        command = 'wget –quiet --output-document ' + str(startPage) + '.html ' + url
-        print command
-        
-        # works - wget is outputting progress to stderror?!? When I am bored, fix this in their source control
-        process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-        process.wait()
+
         if (endPage == 1):
+            print("\tGrabbing page " + str(startPage) + " of " + str(endPage))
+            url = self.calculateBaseUrl(keyWord, zipcode)
+            command = 'wget –quiet --output-document ' + str(startPage) + '.html ' + url
+            #print command
+    
+            # works - wget is outputting progress to stderror?!? When I am bored, fix this in their source control
+            process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            process.wait()
+
+            self.mediumRandomSleep()
             return
                 
         i = startPage
-        
-        while i < range(endPage):
+
+        while i <= endPage:
             # The first URL is different
             if i == 1:
                 continue
-            self.mediumRandomSleep()
 
             #http://www.yellowpages.com/87106/sports-gym?o=0&page=2&q=Sports+Gym
             url = self.calcualteSubsequentUrl(keyWord, zipcode, i)
-            print url
             command = 'wget –quiet --output-document ' + str(i) + '.html ' + url
-            print command
+            print("\tGrabbing page " + str(i) + " of " + str(endPage))
+            #print command
             # works - wget is outputting progress to stderror?!? When I am bored, fix this in their source control
             process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
             process.wait()
             i = i + 1
+            self.mediumRandomSleep()
     
     def getMaxNumberOfResults(self, pageFileName):
         soup = BeautifulSoup(open(pageFileName))
@@ -201,12 +204,14 @@ class YellowPagesScraper():
 if __name__ == "__main__":
     scraper = YellowPagesScraper()
     
-    # Grab the first page, calculate the maxPages, and then grab all the pages
-    
+    # Grab the first page, calculate the maxPages, and then grab all the pages  
+    print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider("gym", "87106", 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
     maxPages = scraper.calculateTotalNumberOfResultsPages(maxResults)
-#   scraper.spider("gym", "87106", 2, maxPages) # I can check to see what's in the directory
+    print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
+    print("The remaining will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
+    scraper.spider("gym", "87106", 2, maxPages) # I can check to see what's in the directory
     
     #scraper.parsePages()
     #scraper.insertBusinessesIntoDatabase()
