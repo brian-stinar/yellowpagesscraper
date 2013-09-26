@@ -132,6 +132,7 @@ class YellowPagesScraper():
             soup = BeautifulSoup(inputFile)
             inputFile.close()
             
+            fileModifiedDate = datetime.datetime.fromtimestamp(os.path.getmtime(fileName))
             
             # either 'info' or 'info-business'
             businesses = soup.findAll("div", {"class" : "info"})
@@ -185,7 +186,7 @@ class YellowPagesScraper():
                     else:
                         website = ""
                     
-                    self.businessList.append((name, phone, streetAddress, city, state, website))
+                    self.businessList.append((name, phone, streetAddress, city, state, website, fileModifiedDate))
                     
     # Delete this eventually       
     def parsePageWithLinks(self, fileName):
@@ -208,17 +209,15 @@ class YellowPagesScraper():
         try:
             connection = MySQLdb.connect(host= "localhost",
                   user="yellowpages",
-                  passwd="FbhPWnZiltkNbQ==",
+                  passwd="FbhPWnZiltkNbQ==", # Randomly generated password which is not used for anything else.
                   db="yellowpages")
 
             cursor = connection.cursor()
 
             for business in self.businessList:
-                now = datetime.datetime.now()
-                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped) VALUES (%s, %s, %s, %s, %s, %s, %s)""", (business[0], business[1], business[2], business[3], business[4], business[5], now))
-                #print command               
-                #cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website) VALUES (%s, %s, %s, %s, %s, %s)""", 
-                #               (business[0], business[1], business[2], business[3], business[4], business[5], now))
+                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)""", 
+                    (business[0], business[1], business[2], business[3], business[4], business[5], business[6])) # TODO, make this a map, then my parameters are named.
                 connection.commit()
             connection.close()    
         
@@ -247,6 +246,7 @@ if __name__ == "__main__":
     
     # Grab the first page, calculate the maxPages, and then grab all the pages
     
+    '''
     print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider(args.keyword, args.zipcode, 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
@@ -254,6 +254,7 @@ if __name__ == "__main__":
     print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
     print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
     scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
+    '''
     
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
