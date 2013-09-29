@@ -11,6 +11,7 @@ import sys
 import subprocess
 import re
 import argparse
+import urllib2
 
 
 class YellowPagesScraper():
@@ -50,6 +51,9 @@ class YellowPagesScraper():
 
     # set up a web scraping session
     def spider(self, keyWord, zipcode, startPage, endPage):        
+
+        print "startPage = " + str(startPage)
+        print "endPage = " + str(endPage)
 
         if (startPage > endPage):
             sys.stderr.write("startPage > endPage --- no good")
@@ -111,8 +115,11 @@ class YellowPagesScraper():
                         match = matchline.split("Showing 1-30 of ")[1].split()[0].strip()
                         return int(match)
             
-            sys.stderr.write("Could not determine the number of results... Exiting")
-            sys.exit(-1)    
+            
+            return self.resultsPerPage            
+            # This may not be an error. For single page results, we only have the first page.
+            #sys.stderr.write("Could not determine the number of results... Exiting")
+            #sys.exit(-1)    
             
 
     def calculateTotalNumberOfResultsPages(self, maxNumerOfResults):
@@ -132,7 +139,7 @@ class YellowPagesScraper():
             soup = BeautifulSoup(inputFile)
             inputFile.close()
             
-            fileModifiedDate = datetime.datetime.fromtimestamp(os.path.getmtime(fileName))
+            date = datetime.datetime.fromtimestamp(os.path.getmtime(fileName))
             
             # either 'info' or 'info-business'
             businesses = soup.findAll("div", {"class" : "info"})
@@ -158,8 +165,11 @@ class YellowPagesScraper():
                     
                     webAddress = business.find("div", {"class" : "srp-business-name"})
                     if webAddress.a.has_attr('href'):
-                        yellowPagesLink = str(webAddress.a['href']) + " yes "
+                        individualYellowPagesLink = str(webAddress.a['href'])
                         # Now, grab the information from this page, and try to find an email address.
+                        email = self.findEmail(individualYellowPagesLink, name)
+                        if (email != None):
+                                date = datetime.datetime.now().time()
                     
                     phone = business.find("span", {"class" : "business-phone"}).getText().strip()
                     
@@ -192,7 +202,28 @@ class YellowPagesScraper():
                     else:
                         website = ""
                     
-                    self.businessList.append((name, phone, streetAddress, city, state, website, fileModifiedDate))
+                    self.businessList.append((name, phone, streetAddress, city, state, website, date))
+
+    def findEmail(self, individualYellowPagesLink, businessName):
+        
+        businessName = businessName.replace(" ", "_")
+        #command = 'wget –quiet --output-document ' + businessName + " " + individualYellowPagesLink
+    
+        
+        #process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+        #process.wait()
+        
+        lines = open(businessName, 'r').readlines()
+        
+        for line in lines:
+            matchObject = re.match(r'.*mailto:(.*)"', line)
+            
+            if matchObject:
+                match =  matchObject.group().split("href")[1][2:-1] # Get rid of the =" at the start, and the " at the end
+                match = match.split("mailto:")[1]
+                return match
+        
+        return None
                     
     # Delete this eventually       
     def parsePageWithLinks(self, fileName):
@@ -251,15 +282,18 @@ if __name__ == "__main__":
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
     
     # Grab the first page, calculate the maxPages, and then grab all the pages
-    
     '''
     print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider(args.keyword, args.zipcode, 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
+    print "maxResults = " + str(maxResults)    
     maxPages = scraper.calculateTotalNumberOfResultsPages(maxResults)
-    print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
-    print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
-    scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
+    print "maxPages = " + str(maxPages)
+
+    if maxPages - 1 > 1:
+        print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
+        print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
+        scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
     '''
     
     scraper.parsePages()
