@@ -16,6 +16,7 @@ import sys
 import subprocess
 import re
 import argparse
+import shutil
 
 class YellowPagesScraper():
     
@@ -36,6 +37,10 @@ class YellowPagesScraper():
         if not os.path.isdir(self.nowString):
             os.mkdir(self.nowString) # make a directory with the data, if it doesn't exist 
         os.chdir(self.nowString) # change into this directory
+                
+    def cleanUp(self):
+        os.system("rm -rf ../" + self.nowString)
+        sys.exit(1)
 
            
     def mediumRandomSleep(self):
@@ -263,8 +268,8 @@ class YellowPagesScraper():
             cursor = connection.cursor()
 
             for business in self.businessList:
-                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped, email) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""", 
+                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped, email, source) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'yellowPages')""", 
                     (business[0], business[1], business[2], business[3], business[4], business[5], business[6], business[7])) # TODO, make this a map, then my parameters are named.
                 connection.commit()
             connection.close()    
@@ -287,7 +292,7 @@ def buildCommandLine():
 
         
 if __name__ == "__main__":
-
+    
     args = buildCommandLine().parse_args()
     
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
@@ -308,3 +313,5 @@ if __name__ == "__main__":
     
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
+    
+    scraper.cleanUp()
