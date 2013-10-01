@@ -1,6 +1,11 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+# Yellowpages.com scraper
+# Written by Brian J. Stinar
+# 505-750-1169
+
+
 from bs4 import BeautifulSoup
 import time
 import random
@@ -11,8 +16,6 @@ import sys
 import subprocess
 import re
 import argparse
-import urllib2
-
 
 class YellowPagesScraper():
     
@@ -26,16 +29,20 @@ class YellowPagesScraper():
         
         self.businessList = []
         
+        self.debug = False
+        
         now = datetime.datetime.now() # Get the current datetime
         self.nowString =  str(now.year)  + '.' + str(now.month) + '.' + str(now.day) + '.' + str(now.hour) 
         if not os.path.isdir(self.nowString):
             os.mkdir(self.nowString) # make a directory with the data, if it doesn't exist 
-        os.chdir(self.nowString) # change into this directory    
-    
+        os.chdir(self.nowString) # change into this directory
+
+           
     def mediumRandomSleep(self):
         sleepTime = self.mediumSleepMinSeconds + random.random() * (self.mediumSleepMaxSeconds - self.mediumSleepMinSeconds)
         print("\t\tsleeping for " + str(sleepTime) + ' seconds')
         time.sleep(sleepTime)
+
     
     def calculateBaseUrl(self, keyWord, zipcode):
         keyWordDashes = keyWord.replace(' ', '-')
@@ -43,11 +50,13 @@ class YellowPagesScraper():
         url = self.url + zipcode + '/' + keyWordDashes + '?q=' + keyWordPlus
         return url
 
+
     def calcualteSubsequentUrl(self, keyWord, zipcode, currentPageGrabbing):
         keyWordDashes = keyWord.replace(' ', '-')
         keyWordPlus = keyWord.replace(' ', '+')
         url = self.url + zipcode + '/' + keyWordDashes + '?o=0&page=' + str(currentPageGrabbing) + '?q=' + keyWordPlus
         return url
+
 
     # set up a web scraping session
     def spider(self, keyWord, zipcode, startPage, endPage):        
@@ -88,6 +97,7 @@ class YellowPagesScraper():
             process.wait()
             i = i + 1
             self.mediumRandomSleep()
+
     
     def getMaxNumberOfResults(self, pageFileName):
         soup = BeautifulSoup(open(pageFileName))
@@ -114,8 +124,7 @@ class YellowPagesScraper():
                         matchline =  matchObject.group()
                         match = matchline.split("Showing 1-30 of ")[1].split()[0].strip()
                         return int(match)
-            
-            
+                       
             return self.resultsPerPage            
             # This may not be an error. For single page results, we only have the first page.
             #sys.stderr.write("Could not determine the number of results... Exiting")
@@ -127,6 +136,7 @@ class YellowPagesScraper():
             return maxNumerOfResults / self.resultsPerPage
         else:
             return (maxNumerOfResults / self.resultsPerPage + 1)
+
     
     def parsePages(self):
         # Get a page listing of all the pages in the current directory
@@ -162,6 +172,8 @@ class YellowPagesScraper():
                 for business in businesses:
 
                     name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
+                    name=name.replace('\n', ' ') # Some of these have newlines in them...?
+                    name=name.replace('/', ' ')
                     
                     webAddress = business.find("div", {"class" : "srp-business-name"})
                     if webAddress.a.has_attr('href'):
@@ -169,10 +181,11 @@ class YellowPagesScraper():
                         # Now, grab the information from this page, and try to find an email address.
                         email = self.findEmail(individualYellowPagesLink, name)
                         if (email != None):
-                                date = datetime.datetime.now().time()
+                                date = datetime.datetime.now()
+                                print date
+                                print " Found an email - using the most recent timestamp"
                     
-                    phone = business.find("span", {"class" : "business-phone"}).getText().strip()
-                    
+                    phone = business.find("span", {"class" : "business-phone"}).getText().strip()                    
                     
                     # TODO -- All this != None stuff is the same - make this into a 'private' method
                     streetAddress = business.find("span", {"class" : "street-address"}) # May be empty
@@ -202,44 +215,42 @@ class YellowPagesScraper():
                     else:
                         website = ""
                     
-                    self.businessList.append((name, phone, streetAddress, city, state, website, date))
+                    self.businessList.append((name, phone, streetAddress, city, state, website, date, email))
+
 
     def findEmail(self, individualYellowPagesLink, businessName):
         
         businessName = businessName.replace(" ", "_")
-        #command = 'wget –quiet --output-document ' + businessName + " " + individualYellowPagesLink
-    
         
-        #process = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-        #process.wait()
+        # Grab the individual business page here.
+        #command = 'wget -quiet --output-document ' + str(businessName).strip() + " " + individualYellowPagesLink
+        command = 'wget –quiet --output-document ' + str(businessName) + '.html ' + individualYellowPagesLink
+                
+        #print "command = " + command
+        #self.mediumRandomSleep()
+        #process = subprocess.Popen(command.split(), shell=True)
+        print "\t\tLooking for email for business " + businessName
+        print "\t\t" + str(command.split())
+        process2 = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+        process2.wait()
         
-        lines = open(businessName, 'r').readlines()
+        lines = open(businessName + '.html', 'r').readlines()
+        
+        match = None
         
         for line in lines:
             matchObject = re.match(r'.*mailto:(.*)"', line)
             
             if matchObject:
-                match =  matchObject.group().split("href")[1][2:-1] # Get rid of the =" at the start, and the " at the end
-                match = match.split("mailto:")[1]
-                return match
+                match =  matchObject.group().split("mailto")[1]
+                match = match.split('"')[0][1:]               
+                print "match = " + match
+                break
         
-        return None
-                    
-    # Delete this eventually       
-    def parsePageWithLinks(self, fileName):
+        process2 = subprocess.Popen(["rm", "-rf", str(businessName) + '.html'])
         
-        command = "links -dump " + fileName
-        print command 
-        outfile = fileName.split('.')[0]+'.clean.html'      
-        print outfile
-        outfile = open(outfile, 'w')
-        process = subprocess.Popen(command.split(), shell=False, stdout=outfile)
-        process.wait()
-        outfile.flush()
-        outfile.close()
-        
-        sys.exit(1)
-        
+        return match
+                            
 
     def insertBusinessesIntoDatabase(self): 
         
@@ -252,9 +263,9 @@ class YellowPagesScraper():
             cursor = connection.cursor()
 
             for business in self.businessList:
-                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)""", 
-                    (business[0], business[1], business[2], business[3], business[4], business[5], business[6])) # TODO, make this a map, then my parameters are named.
+                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped, email) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""", 
+                    (business[0], business[1], business[2], business[3], business[4], business[5], business[6], business[7])) # TODO, make this a map, then my parameters are named.
                 connection.commit()
             connection.close()    
         
@@ -282,7 +293,7 @@ if __name__ == "__main__":
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
     
     # Grab the first page, calculate the maxPages, and then grab all the pages
-    '''
+    
     print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider(args.keyword, args.zipcode, 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
@@ -294,7 +305,6 @@ if __name__ == "__main__":
         print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
         print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
         scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
-    '''
     
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
