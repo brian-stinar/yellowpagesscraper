@@ -226,6 +226,7 @@ class YellowPagesScraper():
     def findEmail(self, individualYellowPagesLink, businessName):
         
         businessName = businessName.replace(" ", "_")
+        businessName = businessName.decode('ascii', 'ignore')
         
         # Grab the individual business page here.
         #command = 'wget -quiet --output-document ' + str(businessName).strip() + " " + individualYellowPagesLink
@@ -310,6 +311,7 @@ if __name__ == "__main__":
         print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
         print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
         scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
+    
     
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
