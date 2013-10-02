@@ -306,7 +306,7 @@ if __name__ == "__main__":
     args = buildCommandLine().parse_args()
     
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
-    '''
+
     # Grab the first page, calculate the maxPages, and then grab all the pages
     print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider(args.keyword, args.zipcode, 1, 1)
@@ -319,7 +319,7 @@ if __name__ == "__main__":
         print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
         print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
         scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
-    '''
+
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
     
