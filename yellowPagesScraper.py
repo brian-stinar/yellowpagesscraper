@@ -178,8 +178,9 @@ class YellowPagesScraper():
 
                     name = business.find("div", {"class" : "srp-business-name"}).getText().strip()
                     name=name.replace('\n', ' ') # Some of these have newlines in them...?
-                    name=name.replace('/', ' ')
-                    
+                    name=name.replace('/', ' ') # and slashes 
+                    name = name.encode('ascii', 'ignore') # and unicode
+
                     webAddress = business.find("div", {"class" : "srp-business-name"})
                     if webAddress.a.has_attr('href'):
                         individualYellowPagesLink = str(webAddress.a['href'])
@@ -226,7 +227,7 @@ class YellowPagesScraper():
     def findEmail(self, individualYellowPagesLink, businessName):
         
         businessName = businessName.replace(" ", "_")
-        businessName = businessName.decode('ascii', 'ignore')
+
         
         # Grab the individual business page here.
         #command = 'wget -quiet --output-document ' + str(businessName).strip() + " " + individualYellowPagesLink
@@ -269,14 +270,22 @@ class YellowPagesScraper():
             cursor = connection.cursor()
 
             for business in self.businessList:
-                cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped, email, source) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'yellowPages')""", 
-                    (business[0], business[1], business[2], business[3], business[4], business[5], business[6], business[7])) # TODO, make this a map, then my parameters are named.
-                connection.commit()
-            connection.close()    
+		try:
+                    #print "processing " + str(business)
+                    cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped, email, source) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'yellowPages')""", 
+                        (business[0], business[1], business[2], business[3], business[4], business[5], business[6], business[7])) # TODO, make this a map, then my parameters are named.
+                    connection.commit()
+        	except MySQLdb.Error, e:
+                    sys.stderr.write("Error processing " + str(business) + "\n")
+                    sys.stderr.write("Error %d: %s" % (e.args[0], e.args[1]))
+                    sys.exit(1)
+                    continue    
+	    connection.close()    
         
         except MySQLdb.Error, e:
             print "Error %d: %s" % (e.args[0], e.args[1])
+		
             sys.exit(1)
 
 
@@ -297,9 +306,8 @@ if __name__ == "__main__":
     args = buildCommandLine().parse_args()
     
     scraper = YellowPagesScraper(args.minSleep, args.maxSleep)
-    
+    '''
     # Grab the first page, calculate the maxPages, and then grab all the pages
-    
     print("Grabbing first page of directory listings to calculate the total page count")
     scraper.spider(args.keyword, args.zipcode, 1, 1)
     maxResults = scraper.getMaxNumberOfResults("1.html")
@@ -311,8 +319,7 @@ if __name__ == "__main__":
         print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
         print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
         scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
-    
-    
+    '''
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
     
