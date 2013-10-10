@@ -31,6 +31,7 @@ class YellowPagesScraper():
         self.businessList = []
         
         self.debug = False
+        self.deleteFiles = True
         
         now = datetime.datetime.now() # Get the current datetime
         self.nowString =  str(now.year)  + '.' + str(now.month) + '.' + str(now.day) + '.' + str(now.hour) 
@@ -40,7 +41,6 @@ class YellowPagesScraper():
                 
     def cleanUp(self):
         os.system("rm -rf ../" + self.nowString)
-        sys.exit(1)
 
            
     def mediumRandomSleep(self):
@@ -131,9 +131,6 @@ class YellowPagesScraper():
                         return int(match)
                        
             return self.resultsPerPage            
-            # This may not be an error. For single page results, we only have the first page.
-            #sys.stderr.write("Could not determine the number of results... Exiting")
-            #sys.exit(-1)    
             
 
     def calculateTotalNumberOfResultsPages(self, maxNumerOfResults):
@@ -191,7 +188,13 @@ class YellowPagesScraper():
                                 print date
                                 print " Found an email - using the most recent timestamp"
                     
-                    phone = business.find("span", {"class" : "business-phone"}).getText().strip()                    
+                    if business.find("span", {"class" : "business-phone"})!= None:
+                        if business.find("span", {"class" : "business-phone"}).getText() != None:      
+                            phone = business.find("span", {"class" : "business-phone"}).getText().strip()
+                        else:
+                            sys.stderr.write("ERROR - business telephone not found! This should never happen.")
+                            self.deleteFiles = False
+                                                
                     
                     # TODO -- All this != None stuff is the same - make this into a 'private' method
                     streetAddress = business.find("span", {"class" : "street-address"}) # May be empty
@@ -228,14 +231,9 @@ class YellowPagesScraper():
         
         businessName = businessName.replace(" ", "_")
 
-        
         # Grab the individual business page here.
-        #command = 'wget -quiet --output-document ' + str(businessName).strip() + " " + individualYellowPagesLink
         command = 'wget –quiet --output-document ' + str(businessName) + '.html ' + individualYellowPagesLink
                 
-        #print "command = " + command
-        #self.mediumRandomSleep()
-        #process = subprocess.Popen(command.split(), shell=True)
         print "\t\tLooking for email for business " + businessName
         print "\t\t" + str(command.split())
         process2 = subprocess.Popen(command.split(), shell=False, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
@@ -270,23 +268,21 @@ class YellowPagesScraper():
             cursor = connection.cursor()
 
             for business in self.businessList:
-		try:
+                try:
                     #print "processing " + str(business)
                     cursor.execute("""INSERT INTO spiderResults (name, phone, streetAddress, city, state, website, timeScraped, email, source) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'yellowPages')""", 
                         (business[0], business[1], business[2], business[3], business[4], business[5], business[6], business[7])) # TODO, make this a map, then my parameters are named.
                     connection.commit()
-        	except MySQLdb.Error, e:
+                except MySQLdb.Error, e:
                     sys.stderr.write("Error processing " + str(business) + "\n")
                     sys.stderr.write("Error %d: %s" % (e.args[0], e.args[1]))
-                    sys.exit(1)
+                    sys.exit(1) # This probably should be fatal
                     continue    
-	    connection.close()    
+                    connection.close()    
         
         except MySQLdb.Error, e:
             print "Error %d: %s" % (e.args[0], e.args[1])
-		
-            sys.exit(1)
 
 
 def buildCommandLine():
@@ -319,8 +315,10 @@ if __name__ == "__main__":
         print("There are " + str(maxPages) + " top level pages to grab. One of which is complete.")
         print("The remaining " + str(maxPages-1) + " will take between " + str((maxPages-1) * scraper.mediumSleepMinSeconds) + " seconds and " + str((maxPages-1) * scraper.mediumSleepMaxSeconds) + " seconds to complete.")
         scraper.spider(args.keyword, args.zipcode, 2, maxPages) # I can check to see what's in the directory
-
+    
+    
     scraper.parsePages()
     scraper.insertBusinessesIntoDatabase()
     
-    scraper.cleanUp()
+    if scraper.deleteFiles == True:
+        scraper.cleanUp()
